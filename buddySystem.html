@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Buddy System Simulation</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+            margin: 20px;
+        }
+
+        .controls {
+            margin-bottom: 20px;
+        }
+
+        #memoryContainer {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 5px;
+        }
+
+        .memory-block {
+            width: 50px;
+            height: 50px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border: 1px solid black;
+        }
+
+        .free {
+            background-color: lightgreen;
+        }
+
+        .occupied {
+            background-color: lightcoral;
+        }
+    </style>
+</head>
+<body>
+    <h1>Buddy System Memory Management</h1>
+    <div class="controls">
+        <input type="number" id="memorySize" placeholder="Enter memory size" min="1">
+        <button onclick="allocateMemory()">Allocate Memory</button>
+        <button onclick="freeMemory()">Free Memory</button>
+    </div>
+    <div id="memoryContainer"></div>
+    <script>
+        let memory = [];
+        const memorySize = 1024; // Tamaño total de la memoria (por ejemplo, 1024 unidades)
+        initializeMemory(memorySize);
+
+        function initializeMemory(size) {
+            memory = [{ size: size, free: true }];
+            renderMemory();
+        }
+
+        function allocateMemory() {
+            const size = parseInt(document.getElementById('memorySize').value);
+            if (isNaN(size) || size <= 0) {
+                alert("Please enter a valid memory size.");
+                return;
+            }
+
+            for (let i = 0; i < memory.length; i++) {
+                if (memory[i].free && memory[i].size >= size) {
+                    splitBlock(i, size);
+                    renderMemory();
+                    return;
+                }
+            }
+
+            alert("Not enough free memory to allocate.");
+        }
+
+        function freeMemory() {
+            const size = parseInt(document.getElementById('memorySize').value);
+            if (isNaN(size) || size <= 0) {
+                alert("Please enter a valid memory size.");
+                return;
+            }
+
+            for (let i = 0; i < memory.length; i++) {
+                if (!memory[i].free && memory[i].size === size) {
+                    memory[i].free = true;
+                    mergeBlocks();
+                    renderMemory();
+                    return;
+                }
+            }
+
+            alert("No occupied block of the specified size found.");
+        }
+
+        function splitBlock(index, size) {
+            while (memory[index].size / 2 >= size) {
+                const halfSize = memory[index].size / 2;
+                memory[index].size = halfSize;
+                memory.splice(index + 1, 0, { size: halfSize, free: true });
+            }
+            memory[index].free = false;
+        }
+
+        function mergeBlocks() {
+            for (let i = 0; i < memory.length - 1; i++) {
+                if (memory[i].free && memory[i + 1].free && memory[i].size === memory[i + 1].size) {
+                    memory[i].size *= 2;
+                    memory.splice(i + 1, 1);
+                    i--;
+                }
+            }
+        }
+
+        function renderMemory() {
+            const memoryContainer = document.getElementById('memoryContainer');
+            memoryContainer.innerHTML = '';
+            memory.forEach(block => {
+                const div = document.createElement('div');
+                div.className = `memory-block ${block.free ? 'free' : 'occupied'}`;
+                div.textContent = block.size;
+                memoryContainer.appendChild(div);
+            });
+        }
+    </script>
+</body>
+</html>
