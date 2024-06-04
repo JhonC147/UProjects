@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Distancia entre dos puntos 2D</title>
+    <style>
+        body {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            margin: 0;
+            font-family: Arial, sans-serif;
+        }
+        #canvas {
+            border: 1px solid #000;
+            width: 500px;
+            height: 500px;
+            position: relative;
+        }
+        .point {
+            width: 10px;
+            height: 10px;
+            background-color: red;
+            position: absolute;
+            border-radius: 50%;
+        }
+        #info {
+            margin-top: 20px;
+            font-size: 16px;
+            color: black;
+        }
+        #distance {
+            margin-top: 20px;
+            font-size: 20px;
+            color: blue;
+        }
+        button {
+            margin-top: 20px;
+            padding: 10px 20px;
+            font-size: 16px;
+        }
+        input {
+            margin: 5px;
+            padding: 5px;
+            font-size: 16px;
+            width: 60px;
+        }
+    </style>
+</head>
+<body>
+
+<div>
+    <div id="canvas"></div>
+    <div id="info"></div>
+    <div id="distance"></div>
+    <div>
+        <input type="number" id="x1" placeholder="X1" min="0" max="500">
+        <input type="number" id="y1" placeholder="Y1" min="0" max="500">
+        <input type="number" id="x2" placeholder="X2" min="0" max="500">
+        <input type="number" id="y2" placeholder="Y2" min="0" max="500">
+        <button id="addPointsButton">Agregar Puntos</button>
+    </div>
+    <button id="resetButton">Reiniciar</button>
+</div>
+
+<script>
+    const canvas = document.getElementById('canvas');
+    const infoDisplay = document.getElementById('info');
+    const distanceDisplay = document.getElementById('distance');
+    const addPointsButton = document.getElementById('addPointsButton');
+    const resetButton = document.getElementById('resetButton');
+    let points = [];
+
+    canvas.addEventListener('click', (event) => {
+        if (points.length < 2) {
+            const rect = canvas.getBoundingClientRect();
+            const x = event.clientX - rect.left;
+            const y = event.clientY - rect.top;
+            
+            addPoint(x, y);
+        }
+    });
+
+    addPointsButton.addEventListener('click', () => {
+        const x1 = parseInt(document.getElementById('x1').value);
+        const y1 = parseInt(document.getElementById('y1').value);
+        const x2 = parseInt(document.getElementById('x2').value);
+        const y2 = parseInt(document.getElementById('y2').value);
+
+        if (!isNaN(x1) && !isNaN(y1) && points.length < 2) {
+            addPoint(x1, y1);
+        }
+        if (!isNaN(x2) && !isNaN(y2) && points.length < 2) {
+            addPoint(x2, y2);
+        }
+    });
+
+    resetButton.addEventListener('click', () => {
+        points = [];
+        infoDisplay.innerHTML = '';
+        distanceDisplay.textContent = '';
+        while (canvas.firstChild) {
+            canvas.removeChild(canvas.firstChild);
+        }
+    });
+
+    function addPoint(x, y) {
+        const point = document.createElement('div');
+        point.className = 'point';
+        point.style.left = `${x - 5}px`;
+        point.style.top = `${y - 5}px`;
+        canvas.appendChild(point);
+        points.push({ x, y });
+
+        const pointInfo = `Punto ${points.length}: (${x.toFixed(2)}, ${y.toFixed(2)})`;
+        infoDisplay.innerHTML += `<div>${pointInfo}</div>`;
+        
+        if (points.length === 2) {
+            const dist = calculateDistance(points[0], points[1]);
+            distanceDisplay.textContent = `Distancia: ${dist.toFixed(2)}`;
+            drawLine(points[0], points[1]);
+        }
+    }
+
+    function calculateDistance(point1, point2) {
+        const dx = point2.x - point1.x;
+        const dy = point2.y - point1.y;
+        return Math.sqrt(dx * dx + dy * dy);
+    }
+
+    function drawLine(point1, point2) {
+        const line = document.createElement('div');
+        const length = calculateDistance(point1, point2);
+        const angle = Math.atan2(point2.y - point1.y, point2.x - point1.x) * 180 / Math.PI;
+        
+        line.style.width = `${length}px`;
+        line.style.height = '2px';
+        line.style.backgroundColor = 'blue';
+        line.style.position = 'absolute';
+        line.style.transformOrigin = '0 0';
+        line.style.transform = `rotate(${angle}deg)`;
+        line.style.left = `${point1.x}px`;
+        line.style.top = `${point1.y}px`;
+        
+        canvas.appendChild(line);
+    }
+</script>
+
+</body>
+</html>
