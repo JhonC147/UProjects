@@ -1,0 +1,408 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simulación de KD Tree</title>
+    <style>
+        body {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            background-color: #2c3e50;
+            color: white;
+        }
+        canvas {
+            background-color: white;
+            border: 2px solid #34495e;
+            margin: 10px;
+        }
+        .controls {
+            margin: 20px;
+        }
+        input {
+            margin-right: 10px;
+        }
+        button {
+            background-color: #34495e;
+            color: white;
+            border: none;
+            border-radius: 12px;
+            padding: 10px 20px;
+            cursor: pointer;
+            margin-right: 10px;
+            transition: background-color 0.3s;
+        }
+        button:hover {
+            background-color: #1c2833;
+        }
+    </style>
+</head>
+<body>
+    <h1>Simulación de KD Tree</h1>
+    <canvas id="kdTreeCanvas" width="500" height="500"></canvas>
+    <div class="controls">
+        <input type="text" id="inputPoint" placeholder="x,y">
+        <button id="insertButton">Ingresar</button>
+        <button id="searchButton">Buscar</button>
+        <button id="deleteButton">Eliminar</button>
+    </div>
+    <canvas id="binaryTreeCanvas" width="500" height="500"></canvas>
+
+    <script>
+        class KDNode {
+            constructor(point, axis) {
+                this.point = point;
+                this.axis = axis;
+                this.left = null;
+                this.right = null;
+            }
+        }
+
+        class KDTree {
+            constructor() {
+                this.root = null;
+                this.highlightedNode = null;
+                this.previousHighlight = null;
+            }
+
+            insert(point, node = this.root, depth = 0) {
+                const axis = depth % 2;
+                if (node === null) {
+                    return new KDNode(point, axis);
+                }
+
+                if (point[axis] < node.point[axis]) {
+                    node.left = this.insert(point, node.left, depth + 1);
+                } else {
+                    node.right = this.insert(point, node.right, depth + 1);
+                }
+
+                return node;
+            }
+
+            search(point, node = this.root, depth = 0) {
+                if (node === null) return null;
+
+                const formattedNodePoint = [node.point[0].toFixed(2), node.point[1].toFixed(2)];
+                const formattedSearchPoint = [point[0].toFixed(2), point[1].toFixed(2)];
+
+                if (formattedNodePoint[0] === formattedSearchPoint[0] && formattedNodePoint[1] === formattedSearchPoint[1]) {
+                    return node;
+                }
+
+                const axis = depth % 2;
+                if (point[axis] < node.point[axis]) {
+                    return this.search(point, node.left, depth + 1);
+                } else {
+                    return this.search(point, node.right, depth + 1);
+                }
+            }
+
+            findNearest(point, node = this.root, depth = 0, best = null) {
+                if (node === null) return best;
+
+                const distance = this.distance(point, node.point);
+                if (best === null || distance < this.distance(point, best)) {
+                    best = node.point;
+                }
+
+                const axis = depth % 2;
+                const nextBranch = point[axis] < node.point[axis] ? node.left : node.right;
+                const otherBranch = point[axis] < node.point[axis] ? node.right : node.left;
+
+                best = this.findNearest(point, nextBranch, depth + 1, best);
+                if (Math.abs(point[axis] - node.point[axis]) < this.distance(point, best)) {
+                    best = this.findNearest(point, otherBranch, depth + 1, best);
+                }
+
+                return best;
+            }
+
+            delete(point, node = this.root, depth = 0, parent = null) {
+                if (node === null) return false;
+
+                const formattedNodePoint = [node.point[0].toFixed(2), node.point[1].toFixed(2)];
+                const formattedDeletePoint = [point[0].toFixed(2), point[1].toFixed(2)];
+
+                if (formattedNodePoint[0] === formattedDeletePoint[0] && formattedNodePoint[1] === formattedDeletePoint[1]) {
+                    if (node.left === null && node.right === null) {
+                        if (parent === null) {
+                            this.root = null;
+                        } else if (parent.left === node) {
+                            parent.left = null;
+                        } else {
+                            parent.right = null;
+                        }
+                    } else if (node.right !== null) {
+                        node.point = this.findMin(node.right, node.axis, depth + 1).point;
+                        this.delete(node.point, node.right, depth + 1, node);
+                    } else {
+                        node.point = this.findMin(node.left, node.axis, depth + 1).point;
+                        this.delete(node.point, node.left, depth + 1, node);
+                    }
+                    return true;
+                }
+
+                const axis = depth % 2;
+                if (point[axis] < node.point[axis]) {
+                    return this.delete(point, node.left, depth + 1, node);
+                } else {
+                    return this.delete(point, node.right, depth + 1, node);
+                }
+            }
+
+            findMin(node, axis, depth = 0) {
+                if (node === null) return null;
+
+                const nodeAxis = depth % 2;
+                if (nodeAxis === axis) {
+                    if (node.left === null) return node;
+                    return this.findMin(node.left, axis, depth + 1);
+                }
+
+                const leftMin = this.findMin(node.left, axis, depth + 1);
+                const rightMin = this.findMin(node.right, axis, depth + 1);
+                let minNode = node;
+
+                if (leftMin !== null && leftMin.point[axis] < minNode.point[axis]) {
+                    minNode = leftMin;
+                }
+                if (rightMin !== null && rightMin.point[axis] < minNode.point[axis]) {
+                    minNode = rightMin;
+                }
+
+                return minNode;
+            }
+
+            distance(point1, point2) {
+                return Math.sqrt((point1[0] - point2[0]) ** 2 + (point1[1] - point2[1]) ** 2);
+            }
+
+            drawNode(ctx, node, x1, y1, x2, y2, depth = 0) {
+                if (!node) return;
+                const axis = depth % 2;
+                const [x, y] = node.point;
+
+                const scaledX = x * 10;
+                const scaledY = y * 10;
+
+                ctx.fillStyle = this.highlightedNode === node ? 'orange' : 'black';
+                ctx.fillRect(scaledX - 2, scaledY - 2, 4, 4);
+
+                if (axis === 0) {
+                    ctx.beginPath();
+                    ctx.moveTo(scaledX, y1);
+                    ctx.lineTo(scaledX, y2);
+                    ctx.strokeStyle = this.highlightedNode === node ? 'orange' : 'black';
+                    ctx.stroke();
+                    this.drawNode(ctx, node.left, x1, y1, scaledX, y2, depth + 1);
+                    this.drawNode(ctx, node.right, scaledX, y1, x2, y2, depth + 1);
+                } else {
+                    ctx.beginPath();
+                    ctx.moveTo(x1, scaledY);
+                    ctx.lineTo(x2, scaledY);
+                    ctx.strokeStyle = this.highlightedNode === node ? 'orange' : 'black';
+                    ctx.stroke();
+                    this.drawNode(ctx, node.left, x1, y1, x2, scaledY, depth + 1);
+                    this.drawNode(ctx, node.right, x1, scaledY, x2, y2, depth + 1);
+                }
+            }
+
+            drawKDTree(ctx) {
+                ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+                this.drawNode(ctx, this.root, 0, 0, ctx.canvas.width, ctx.canvas.height);
+            }
+
+            drawBinaryTree(ctx, node, x, y, dx, dy, depth = 0) {
+                if (!node) return;
+                const formattedX = node.point[0].toFixed(2);
+                const formattedY = node.point[1].toFixed(2);
+                const backgroundColor = this.highlightedNode === node ? 'orange' : (depth % 2 === 0 ? 'red' : 'blue');
+                const textColor = 'white';
+
+                ctx.fillStyle = backgroundColor;
+                ctx.fillRect(x - 10, y - 10, 80, 20);
+
+                ctx.fillStyle = textColor;
+                ctx.fillText(`(${formattedX},${formattedY})`, x, y + 5);
+
+                if (node.left) {
+                    ctx.beginPath();
+                    ctx.moveTo(x, y);
+                    ctx.lineTo(x - dx, y + dy);
+                    ctx.stroke();
+                    this.drawBinaryTree(ctx, node.left, x - dx, y + dy, dx / 1.5, dy, depth + 1);
+                }
+                if (node.right) {
+                    ctx.beginPath();
+                    ctx.moveTo(x, y);
+                    ctx.lineTo(x + dx, y + dy);
+                    ctx.stroke();
+                    this.drawBinaryTree(ctx, node.right, x + dx, y + dy, dx / 1.5, dy, depth + 1);
+                }
+            }
+
+            drawBinaryTreeCanvas(ctx) {
+                ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+                this.drawBinaryTree(ctx, this.root, ctx.canvas.width / 2, 20, 100, 50);
+            }
+
+            resetHighlight() {
+                this.previousHighlight = this.highlightedNode;
+                this.highlightedNode = null;
+            }
+
+            highlightNode(point) {
+                this.resetHighlight();
+                this.highlightedNode = this.search(point);
+            }
+
+            animateInsert(point) {
+                const duration = 1000; // 1 second
+                let start = null;
+                const node = this.search(point);
+                const animate = (timestamp) => {
+                    if (!start) start = timestamp;
+                    const progress = (timestamp - start) / duration;
+                    const y = 20 + progress * 500;
+                    this.drawBinaryTreeCanvasWithAnimation(binaryCtx, this.root, 500 / 2, y, 100, 50);
+                    if (progress < 1) {
+                        requestAnimationFrame(animate);
+                    } else {
+                        this.drawBinaryTreeCanvas(binaryCtx);
+                    }
+                };
+                requestAnimationFrame(animate);
+            }
+
+            animateDelete(point) {
+                const duration = 1000; // 1 second
+                let start = null;
+                const node = this.search(point);
+                const animate = (timestamp) => {
+                    if (!start) start = timestamp;
+                    const progress = (timestamp - start) / duration;
+                    const y = 520 - progress * 500;
+                    this.drawBinaryTreeCanvasWithAnimation(binaryCtx, this.root, 500 / 2, y, 100, 50);
+                    if (progress < 1) {
+                        requestAnimationFrame(animate);
+                    } else {
+                        this.drawBinaryTreeCanvas(binaryCtx);
+                    }
+                };
+                requestAnimationFrame(animate);
+            }
+
+            drawBinaryTreeCanvasWithAnimation(ctx, node, x, y, dx, dy, depth = 0) {
+                if (!node) return;
+                const formattedX = node.point[0].toFixed(2);
+                const formattedY = node.point[1].toFixed(2);
+                const backgroundColor = this.highlightedNode === node ? 'orange' : (depth % 2 === 0 ? 'red' : 'blue');
+                const textColor = 'white';
+
+                ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+
+                ctx.fillStyle = backgroundColor;
+                ctx.fillRect(x - 25, y - 10, 60, 20);
+
+                ctx.fillStyle = textColor;
+                ctx.fillText(`(${formattedX},${formattedY})`, x, y + 5);
+
+                if (node.left) {
+                    ctx.beginPath();
+                    ctx.moveTo(x, y);
+                    ctx.lineTo(x - dx, y + dy);
+                    ctx.stroke();
+                    this.drawBinaryTreeCanvasWithAnimation(ctx, node.left, x - dx, y + dy, dx / 1.5, dy, depth + 1);
+                }
+                if (node.right) {
+                    ctx.beginPath();
+                    ctx.moveTo(x, y);
+                    ctx.lineTo(x + dx, y + dy);
+                    ctx.stroke();
+                    this.drawBinaryTreeCanvasWithAnimation(ctx, node.right, x + dx, y + dy, dx / 1.5, dy, depth + 1);
+                }
+            }
+        }
+
+        function isPointInRange(point, min, max) {
+            return point.every(coord => coord >= min && coord <= max);
+        }
+
+        const kdTreeCanvas = document.getElementById('kdTreeCanvas');
+        const binaryTreeCanvas = document.getElementById('binaryTreeCanvas');
+        const kdCtx = kdTreeCanvas.getContext('2d');
+        const binaryCtx = binaryTreeCanvas.getContext('2d');
+        const tree = new KDTree();
+
+        kdTreeCanvas.addEventListener('click', (event) => {
+            const rect = kdTreeCanvas.getBoundingClientRect();
+            const x = (event.clientX - rect.left) / 10;
+            const y = (event.clientY - rect.top) / 10;
+            const point = [x, y];
+            if (isPointInRange(point, 0, 50)) {
+                tree.root = tree.insert(point);
+                tree.drawKDTree(kdCtx);
+                tree.animateInsert(point);
+            } else {
+                alert('Punto fuera del rango permitido (0-50)');
+            }
+        });
+
+        document.getElementById('insertButton').addEventListener('click', () => {
+            const input = document.getElementById('inputPoint').value;
+            const point = input.split(',').map(Number);
+            if (point.length === 2 && !isNaN(point[0]) && !isNaN(point[1])) {
+                if (isPointInRange(point, 0, 50)) {
+                    tree.root = tree.insert(point);
+                    tree.drawKDTree(kdCtx);
+                    tree.animateInsert(point);
+                } else {
+                    alert('Punto fuera del rango permitido (0-50)');
+                }
+            } else {
+                alert('Por favor, ingrese un punto válido en el formato x,y');
+            }
+        });
+
+        document.getElementById('searchButton').addEventListener('click', () => {
+            const input = document.getElementById('inputPoint').value;
+            const point = input.split(',').map(Number);
+            if (point.length === 2 && !isNaN(point[0]) && !isNaN(point[1])) {
+                const found = tree.search(point);
+                tree.resetHighlight();
+                if (found) {
+                    tree.highlightNode(point);
+                    alert(`Punto encontrado: (${found.point[0].toFixed(2)},${found.point[1].toFixed(2)})`);
+                } else {
+                    const nearest = tree.findNearest(point);
+                    alert(`Punto no encontrado. Punto más cercano: (${nearest[0].toFixed(2)},${nearest[1].toFixed(2)})`);
+                    tree.highlightNode(nearest);
+                }
+                tree.drawKDTree(kdCtx);
+                tree.drawBinaryTreeCanvas(binaryCtx);
+            } else {
+                alert('Por favor, ingrese un punto válido en el formato x,y');
+            }
+        });
+
+        document.getElementById('deleteButton').addEventListener('click', () => {
+            const input = document.getElementById('inputPoint').value;
+            const point = input.split(',').map(Number);
+            if (point.length === 2 && !isNaN(point[0]) && !isNaN(point[1])) {
+                const deleted = tree.delete(point);
+                tree.resetHighlight();
+                if (deleted) {
+                    tree.drawKDTree(kdCtx);
+                    tree.animateDelete(point);
+                } else {
+                    alert('Dato no encontrado');
+                }
+            } else {
+                alert('Por favor, ingrese un punto válido en el formato x,y');
+            }
+        });
+    </script>
+</body>
+</html>
