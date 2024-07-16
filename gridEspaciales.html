@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cuadro de Puntos</title>
+    <style>
+        #canvas {
+            border: 1px solid black;
+            position: relative;
+            width: 500px;
+            height: 500px;
+            background: url('puno.png') no-repeat center center;
+            background-size: cover;
+        }
+        .point {
+            position: absolute;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+        }
+        #results {
+            margin-top: 20px;
+        }
+        #results table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        #results th, #results td {
+            border: 1px solid black;
+            padding: 8px;
+            text-align: left;
+        }
+    </style>
+</head>
+<body>
+    <h1>Cuadro de Puntos</h1>
+    <label for="color">Selecciona el color del punto:</label>
+    <select id="color">
+        <option value="orange">Naranja</option>
+        <option value="red">Rojo</option>
+        <option value="blue">Azul</option>
+        <option value="green">Verde</option>
+    </select>
+    <div id="canvas"></div>
+    <button id="createButton">Crear</button>
+    <button id="yoButton">Yo</button>
+    <p id="myLocation">Mi ubicación: </p>
+    <label for="searchColor">Color a buscar:</label>
+    <select id="searchColor">
+        <option value="orange">Naranja</option>
+        <option value="red">Rojo</option>
+        <option value="blue">Azul</option>
+        <option value="green">Verde</option>
+    </select>
+    <label for="numPoints">Cantidad de puntos a buscar:</label>
+    <input type="number" id="numPoints" value="2">
+    <button id="searchButton">Buscar puntos cercanos</button>
+    <div id="results">
+        <table>
+            <thead>
+                <tr>
+                    <th>X</th>
+                    <th>Y</th>
+                </tr>
+            </thead>
+            <tbody id="resultsBody">
+            </tbody>
+        </table>
+    </div>
+    <button onclick="savePoints()">Guardar</button>
+    <button onclick="loadPoints()">Abrir documento</button>
+    <input type="file" id="fileInput" style="display:none;" onchange="handleFile(event)">
+
+    <script>
+        const canvas = document.getElementById('canvas');
+        const colorSelect = document.getElementById('color');
+        const fileInput = document.getElementById('fileInput');
+        const createButton = document.getElementById('createButton');
+        const yoButton = document.getElementById('yoButton');
+        const searchButton = document.getElementById('searchButton');
+        const searchColorSelect = document.getElementById('searchColor');
+        const numPointsInput = document.getElementById('numPoints');
+        const myLocation = document.getElementById('myLocation');
+        const resultsBody = document.getElementById('resultsBody');
+        let points = [];
+        let mode = 'create'; // 'create' or 'yo'
+        let uniquePoint = null;
+
+        createButton.addEventListener('click', () => {
+            mode = 'create';
+        });
+
+        yoButton.addEventListener('click', () => {
+            mode = 'yo';
+        });
+
+        canvas.addEventListener('click', (event) => {
+            const rect = canvas.getBoundingClientRect();
+            const x = event.clientX - rect.left;
+            const y = event.clientY - rect.top;
+
+            if (x >= 0 && x <= 500 && y >= 0 && y <= 500) {
+                if (mode === 'create') {
+                    const color = colorSelect.value;
+                    const point = { x, y, color };
+                    points.push(point);
+                    createPointElement(point);
+                } else if (mode === 'yo') {
+                    if (uniquePoint) {
+                        uniquePoint.remove();
+                    }
+                    const point = { x, y, color: 'black' };
+                    uniquePoint = createPointElement(point);
+                    myLocation.textContent = `Mi ubicación: (${x.toFixed(2)}, ${y.toFixed(2)})`;
+                }
+            }
+        });
+
+        function createPointElement({ x, y, color }) {
+            const pointElement = document.createElement('div');
+            pointElement.classList.add('point');
+            pointElement.style.left = `${x - 5}px`;
+            pointElement.style.top = `${y - 5}px`;
+            pointElement.style.backgroundColor = color;
+            canvas.appendChild(pointElement);
+            return pointElement;
+        }
+
+        searchButton.addEventListener('click', () => {
+            if (!uniquePoint) {
+                alert("Debe crear el punto negro primero.");
+                return;
+            }
+
+            const searchColor = searchColorSelect.value;
+            const numPoints = parseInt(numPointsInput.value, 10);
+
+            const uniquePointRect = uniquePoint.getBoundingClientRect();
+            const originX = uniquePointRect.left + 5;
+            const originY = uniquePointRect.top + 5;
+
+            const nearbyPoints = findNearbyPoints({ x: originX, y: originY }, searchColor, numPoints);
+            updateResultsTable(nearbyPoints);
+        });
+
+        function findNearbyPoints(origin, color, numPoints) {
+            const relevantPoints = points.filter(point => point.color === color);
+            relevantPoints.sort((a, b) => {
+                const distA = Math.sqrt((a.x - origin.x) ** 2 + (a.y - origin.y) ** 2);
+                const distB = Math.sqrt((b.x - origin.x) ** 2 + (b.y - origin.y) ** 2);
+                return distA - distB;
+            });
+            return relevantPoints.slice(0, numPoints);
+        }
+
+        function updateResultsTable(points) {
+            resultsBody.innerHTML = '';
+            points.forEach(point => {
+                const row = document.createElement('tr');
+                const cellX = document.createElement('td');
+                const cellY = document.createElement('td');
+                cellX.textContent = point.x.toFixed(2);
+                cellY.textContent = point.y.toFixed(2);
+                row.appendChild(cellX);
+                row.appendChild(cellY);
+                resultsBody.appendChild(row);
+            });
+        }
+
+        function savePoints() {
+            const data = points.map(point => `${point.x},${point.y},${point.color}`).join('\n');
+            const blob = new Blob([data], { type: 'text/plain' });
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(blob);
+            link.download = 'points.txt';
+            link.click();
+        }
+
+        function loadPoints() {
+            fileInput.click();
+        }
+
+        function handleFile(event) {
+            const file = event.target.files[0];
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const contents = e.target.result;
+                points = contents.split('\n').map(line => {
+                    const [x, y, color] = line.split(',');
+                    return { x: parseFloat(x), y: parseFloat(y), color };
+                });
+                points.forEach(point => createPointElement(point));
+            };
+            reader.readAsText(file);
+        }
+    </script>
+</body>
+</html>
