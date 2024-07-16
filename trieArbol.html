@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Trie Suggestion Box</title>
+    <style>
+        body {
+            background-color: #001f3f;
+            color: rgba(255, 255, 255, 0.7);
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+        }
+        #suggestions, #word-tree {
+            background-color: rgba(255, 255, 255, 0.1);
+            border: 1px solid transparent;
+            border-radius: 10px;
+            max-height: 150px;
+            overflow-y: auto;
+            padding: 10px;
+            margin-top: 10px;
+        }
+        .suggestion-item {
+            padding: 5px;
+            cursor: pointer;
+        }
+        .suggestion-item:hover {
+            background-color: rgba(255, 255, 255, 0.2);
+        }
+        #entered-words {
+            margin-top: 20px;
+        }
+        button, input[type="file"], input[type="text"] {
+            background-color: rgba(255, 255, 255, 0.1);
+            border: 1px solid transparent;
+            border-radius: 10px;
+            color: rgba(255, 255, 255, 0.7);
+            padding: 10px;
+            margin-top: 10px;
+            width: 100%;
+        }
+        button:hover, input[type="file"]:hover, input[type="text"]:hover {
+            background-color: rgba(255, 255, 255, 0.2);
+        }
+        #word-tree {
+            margin-top: 20px;
+            white-space: pre;
+        }
+        #words-list {
+            display: none;
+        }
+        #new-words-list {
+            list-style-type: none;
+            padding: 0;
+        }
+    </style>
+</head>
+<body>
+    <input type="file" id="file-input">
+    <input type="text" id="word-input" placeholder="Enter a word">
+    <div id="suggestions"></div>
+    <div id="entered-words">
+        <h3>New Entered Words:</h3>
+        <ul id="new-words-list"></ul>
+    </div>
+    <button id="save-file">Save to File</button>
+    <div id="word-tree">
+        <h3>Word Trie:</h3>
+        <pre id="tree-structure"></pre>
+    </div>
+
+    <script>
+        class TrieNode {
+            constructor() {
+                this.children = {};
+                this.isEndOfWord = false;
+            }
+        }
+
+        class Trie {
+            constructor() {
+                this.root = new TrieNode();
+            }
+
+            insert(word) {
+                let node = this.root;
+                for (const char of word) {
+                    if (!node.children[char]) {
+                        node.children[char] = new TrieNode();
+                    }
+                    node = node.children[char];
+                }
+                node.isEndOfWord = true;
+            }
+
+            suggest(prefix) {
+                let node = this.root;
+                for (const char of prefix) {
+                    if (!node.children[char]) {
+                        return [];
+                    }
+                    node = node.children[char];
+                }
+                return this._getSuggestionsFromNode(prefix, node);
+            }
+
+            _getSuggestionsFromNode(prefix, node) {
+                const suggestions = [];
+                if (node.isEndOfWord) {
+                    suggestions.push(prefix);
+                }
+                for (const char in node.children) {
+                    suggestions.push(...this._getSuggestionsFromNode(prefix + char, node.children[char]));
+                }
+                return suggestions;
+            }
+
+            getTrieStructure(node = this.root, indent = '') {
+                let result = '';
+                for (const char in node.children) {
+                    result += `${indent}${char}\n`;
+                    result += this.getTrieStructure(node.children[char], indent + '  ');
+                }
+                return result;
+            }
+        }
+
+        const trie = new Trie();
+        const input = document.getElementById('word-input');
+        const suggestionsDiv = document.getElementById('suggestions');
+        const newWordsList = document.getElementById('new-words-list');
+        const fileInput = document.getElementById('file-input');
+        const saveButton = document.getElementById('save-file');
+        const treeStructure = document.getElementById('tree-structure');
+        let words = [];
+        let newWords = [];
+
+        function loadWordsFromFile(event) {
+            const file = event.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    const text = e.target.result;
+                    words = text.split('\n').map(word => word.trim()).filter(word => word);
+                    words.forEach(word => trie.insert(word));
+                    updateTreeStructure();
+                };
+                reader.readAsText(file);
+            }
+        }
+
+        function updateSuggestions() {
+            const query = input.value;
+            const suggestions = trie.suggest(query);
+            suggestionsDiv.innerHTML = '';
+            suggestions.forEach(suggestion => {
+                const div = document.createElement('div');
+                div.className = 'suggestion-item';
+                div.textContent = suggestion;
+                div.addEventListener('click', () => {
+                    input.value = suggestion;
+                    addWord(suggestion);
+                    suggestionsDiv.innerHTML = '';
+                });
+                suggestionsDiv.appendChild(div);
+            });
+            updateTreeStructure(query);
+        }
+
+        function addWord(word) {
+            if (!words.includes(word) && !newWords.includes(word)) {
+                const li = document.createElement('li');
+                li.textContent = word;
+                newWordsList.appendChild(li);
+                newWords.push(word);
+                trie.insert(word);
+            }
+        }
+
+        function saveWordsToFile() {
+            const allWords = words.concat(newWords);
+            const blob = new Blob([allWords.join('\n')], { type: 'text/plain' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'words.txt';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+        }
+
+        function updateTreeStructure(prefix = '') {
+            treeStructure.textContent = prefix ? trie.getTrieStructure(trie.root, '', prefix) : trie.getTrieStructure();
+        }
+
+        input.addEventListener('input', updateSuggestions);
+
+        input.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                const word = input.value.trim();
+                if (word) {
+                    addWord(word);
+                    input.value = '';
+                    suggestionsDiv.innerHTML = '';
+                }
+            }
+        });
+
+        fileInput.addEventListener('change', loadWordsFromFile);
+        saveButton.addEventListener('click', saveWordsToFile);
+    </script>
+</body>
+</html>

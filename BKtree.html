@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tienda Online</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #e0f7fa; /* Color tipo agua */
+        }
+        .gallery {
+            display: flex;
+            flex-wrap: wrap;
+        }
+        .product {
+            margin: 10px;
+            border: 1px solid #ccc;
+            padding: 10px;
+            text-align: center;
+            background-color: rgba(128, 128, 128, 0.5); /* Gris transparente */
+            border-radius: 10px; /* Bordes redondeados */
+        }
+        .product img {
+            max-width: 150px;
+            height: auto;
+        }
+        .buttons {
+            margin-bottom: 20px;
+        }
+        .buttons button {
+            background-color: #b2ebf2; /* Color más oscuro que el fondo */
+            border: none;
+            padding: 10px 20px;
+            margin: 5px;
+            border-radius: 5px; /* Bordes redondeados */
+            cursor: pointer;
+        }
+        .upload-form {
+            margin-bottom: 20px;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="upload-form">
+        <input type="file" id="imageInput" accept="image/*">
+        <input type="number" id="priceInput" placeholder="Precio" min="0">
+        <select id="categorySelect">
+            <option value="Electronics">Electrónica</option>
+            <option value="Clothing">Ropa</option>
+            <option value="Books">Libros</option>
+            <option value="Furniture">Muebles</option>
+            <option value="Food">Alimentos</option>
+            <option value="Accessories">Accesorios</option>
+        </select>
+        <button onclick="addProduct()">Añadir Producto</button>
+    </div>
+
+    <div class="buttons">
+        <button onclick="showAllProducts()">Todos</button>
+        <button onclick="filterProducts('cheap')">Baratos</button>
+        <button onclick="filterProducts('medium')">Intermedios</button>
+        <button onclick="filterProducts('expensive')">Caros</button>
+    </div>
+
+    <div class="gallery" id="gallery">
+        <!-- Productos iniciales -->
+        <div class="product" data-price="30" data-category="Electronics">
+            <img src="product1.jpg" alt="Producto 1">
+            <p>$30</p>
+            <p>Categoría: Electrónica</p>
+        </div>
+        <div class="product" data-price="150" data-category="Clothing">
+            <img src="product2.jpg" alt="Producto 2">
+            <p>$150</p>
+            <p>Categoría: Ropa</p>
+        </div>
+        <div class="product" data-price="300" data-category="Books">
+            <img src="product3.jpg" alt="Producto 3">
+            <p>$300</p>
+            <p>Categoría: Libros</p>
+        </div>
+        <!-- Más productos aquí -->
+    </div>
+
+    <script>
+        class Node {
+            constructor(element) {
+                this.element = element;
+                this.children = {};
+            }
+        }
+
+        class BKTree {
+            constructor(distanceFunc) {
+                this.root = null;
+                this.distanceFunc = distanceFunc;
+            }
+
+            insert(element) {
+                if (!this.root) {
+                    this.root = new Node(element);
+                    return;
+                }
+
+                let currentNode = this.root;
+                while (true) {
+                    let distance = this.distanceFunc(currentNode.element.price, element.price);
+                    if (distance in currentNode.children) {
+                        currentNode = currentNode.children[distance];
+                    } else {
+                        currentNode.children[distance] = new Node(element);
+                        break;
+                    }
+                }
+            }
+
+            search(query, threshold) {
+                if (!this.root) {
+                    return [];
+                }
+
+                let results = [];
+                let nodesToVisit = [this.root];
+
+                while (nodesToVisit.length > 0) {
+                    let currentNode = nodesToVisit.pop();
+                    let distance = this.distanceFunc(currentNode.element.price, query.price);
+                    if (distance <= threshold && currentNode.element.category === query.category) {
+                        results.push(currentNode.element);
+                    }
+
+                    for (let dist in currentNode.children) {
+                        if (distance - threshold <= dist && dist <= distance + threshold) {
+                            nodesToVisit.push(currentNode.children[dist]);
+                        }
+                    }
+                }
+
+                return results;
+            }
+        }
+
+        const products = Array.from(document.querySelectorAll('.product'));
+        const priceBKTree = new BKTree((a, b) => Math.abs(a - b));
+
+        products.forEach(product => {
+            const price = parseInt(product.getAttribute('data-price'), 10);
+            const category = product.getAttribute('data-category');
+            priceBKTree.insert({ price, category });
+        });
+
+        function addProduct() {
+            const imageInput = document.getElementById('imageInput');
+            const priceInput = document.getElementById('priceInput');
+            const categorySelect = document.getElementById('categorySelect');
+            const gallery = document.getElementById('gallery');
+
+            const file = imageInput.files[0];
+            const price = parseInt(priceInput.value, 10);
+            const category = categorySelect.value;
+
+            if (!file || isNaN(price)) {
+                alert("Por favor, sube una imagen y asigna un precio válido.");
+                return;
+            }
+
+            const reader = new FileReader();
+            reader.onload = function(event) {
+                const imgSrc = event.target.result;
+                const productDiv = document.createElement('div');
+                productDiv.className = 'product';
+                productDiv.setAttribute('data-price', price);
+                productDiv.setAttribute('data-category', category);
+                productDiv.innerHTML = `<img src="${imgSrc}" alt="Nuevo Producto"><p>$${price}</p><p>Categoría: ${category}</p>`;
+
+                gallery.appendChild(productDiv);
+                priceBKTree.insert({ price, category });
+                products.push(productDiv);
+            };
+            reader.readAsDataURL(file);
+
+            imageInput.value = '';
+            priceInput.value = '';
+            categorySelect.value = '';
+        }
+
+        function showAllProducts() {
+            products.forEach(product => {
+                product.style.display = 'block';
+            });
+        }
+
+        function filterProducts(filter) {
+            let min, max;
+            if (filter === 'cheap') {
+                min = 0;
+                max = 50;
+            } else if (filter === 'medium') {
+                min = 51;
+                max = 200;
+            } else if (filter === 'expensive') {
+                min = 201;
+                max = 1000;
+            }
+
+            const category = document.getElementById('categorySelect').value;
+
+            const filteredPrices = priceBKTree.search({ price: (min + max) / 2, category }, (max - min) / 2);
+            products.forEach(product => {
+                const price = parseInt(product.getAttribute('data-price'), 10);
+                const productCategory = product.getAttribute('data-category');
+                if (filteredPrices.some(p => p.price === price && p.category === productCategory)) {
+                    product.style.display = 'block';
+                } else {
+                    product.style.display = 'none';
+                }
+            });
+        }
+    </script>
+
+</body>
+</html>
