@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Analizador de Imágenes</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 20px;
+        }
+        #image-container {
+            margin-top: 20px;
+        }
+        #image {
+            max-width: 100%;
+        }
+        #info {
+            margin-top: 20px;
+            padding: 10px;
+            background-color: #f0f0f0;
+            border: 1px solid #ccc;
+        }
+        .vector {
+            margin-top: 10px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Analizador de Imágenes</h1>
+    <input type="file" id="fileInput" accept="image/*">
+    <div id="image-container">
+        <img id="image" src="" alt="">
+    </div>
+    <div id="info"></div>
+
+    <script>
+        document.getElementById('fileInput').addEventListener('change', function(event) {
+            const file = event.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    const img = document.getElementById('image');
+                    img.src = e.target.result;
+                    img.onload = function() {
+                        analyzeImage(img);
+                    }
+                }
+                reader.readAsDataURL(file);
+            }
+        });
+
+        function analyzeImage(img) {
+            const canvas = document.createElement('canvas');
+            const context = canvas.getContext('2d');
+            canvas.width = img.naturalWidth;
+            canvas.height = img.naturalHeight;
+            context.drawImage(img, 0, 0, canvas.width, canvas.height);
+
+            const imageData = context.getImageData(0, 0, canvas.width, canvas.height);
+            const data = imageData.data;
+            const infoContainer = document.getElementById('info');
+            infoContainer.innerHTML = `
+                <p>Dimensiones: ${canvas.width} x ${canvas.height}</p>
+                <div class="vector">Color Promedio: ${calculateAverageColor(data)}</div>
+            `;
+        }
+
+        function calculateAverageColor(data) {
+            let r = 0, g = 0, b = 0;
+            const length = data.length / 4;
+            for (let i = 0; i < data.length; i += 4) {
+                r += data[i];
+                g += data[i + 1];
+                b += data[i + 2];
+            }
+            r = Math.floor(r / length);
+            g = Math.floor(g / length);
+            b = Math.floor(b / length);
+            return `rgb(${r}, ${g}, ${b})`;
+        }
+    </script>
+</body>
+</html>
