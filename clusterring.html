@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Interactive Scatter Plot</title>
+    <script src="https://d3js.org/d3.v6.min.js"></script>
+    <style>
+        .chart {
+            margin: 20px;
+        }
+        .button-container {
+            margin: 20px;
+        }
+        .output-container {
+            margin: 20px;
+        }
+        .line {
+            stroke: red;
+            stroke-width: 2;
+            stroke-dasharray: 5,5;
+        }
+        .zone-color {
+            fill: none;
+            pointer-events: none;
+        }
+        .highlight {
+            fill: orange !important;
+        }
+        table {
+            margin: 20px;
+            border-collapse: collapse;
+            width: 80%;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        }
+        th, td {
+            border: 1px solid black;
+            padding: 8px;
+            text-align: center;
+        }
+        th {
+            background-color: #4CAF50;
+            color: white;
+        }
+        tr:nth-child(even) {
+            background-color: #f2f2f2;
+        }
+        tr:hover {
+            background-color: #ddd;
+        }
+        #divide-button {
+            background-color: #4CAF50;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            cursor: pointer;
+            font-size: 16px;
+            border-radius: 5px;
+        }
+        #divide-button:hover {
+            background-color: #45a049;
+        }
+    </style>
+</head>
+<body>
+    <div class="chart" id="chart"></div>
+    <div class="button-container">
+        <button id="divide-button">Dividir en Zonas</button>
+    </div>
+    <div class="output-container" id="output-container"></div>
+
+    <script>
+        // Configuración del gráfico
+        const width = 800;
+        const height = 400;
+        const margin = { top: 20, right: 20, bottom: 30, left: 40 };
+        const names = ["Juan", "María", "Carlos", "Ana", "Luis", "Marta", "Pedro", "Laura", "José", "Elena"];
+
+        // Generar datos al azar
+        const data = Array.from({ length: 100 }, () => ({
+            name: names[Math.floor(Math.random() * names.length)],
+            age: Math.floor(Math.random() * (65 - 14 + 1)) + 14,
+            purchases: Math.floor(Math.random() * 101)
+        }));
+
+        // Crear el SVG
+        const svg = d3.select("#chart")
+            .append("svg")
+            .attr("width", width)
+            .attr("height", height)
+            .append("g")
+            .attr("transform", `translate(${margin.left},${margin.top})`);
+
+        // Crear escalas
+        const x = d3.scaleLinear().domain([14, 65]).range([0, width - margin.left - margin.right]);
+        const y = d3.scaleLinear().domain([0, 100]).range([height - margin.top - margin.bottom, 0]);
+
+        // Añadir los puntos
+        const circles = svg.selectAll("circle")
+            .data(data)
+            .enter().append("circle")
+            .attr("cx", d => x(d.age))
+            .attr("cy", d => y(d.purchases))
+            .attr("r", 5)
+            .attr("fill", "steelblue");
+
+        // Función para dividir en zonas y colorear tercios
+        document.getElementById("divide-button").addEventListener("click", () => {
+            svg.selectAll(".line").remove();
+            svg.selectAll(".zone-color").remove();
+            svg.selectAll("circle").attr("fill", "steelblue");
+            const zoneWidth = (width - margin.left - margin.right) / 3;
+            const zoneHeight = height - margin.top - margin.bottom;
+
+            // Añadir líneas para dividir el gráfico en 3 zonas
+            for (let i = 1; i < 3; i++) {
+                svg.append("line")
+                    .attr("x1", i * zoneWidth)
+                    .attr("y1", 0)
+                    .attr("x2", i * zoneWidth)
+                    .attr("y2", zoneHeight)
+                    .attr("class", "line");
+            }
+
+            // Colorear el tercio inferior de la primera zona
+            svg.append("rect")
+                .attr("x", 0)
+                .attr("y", y(33.33))
+                .attr("width", zoneWidth)
+                .attr("height", y(100) - y(33.33))
+                .attr("class", "zone-color")
+                .attr("fill", "yellow")
+                .attr("opacity", 0.3);
+
+            // Colorear el tercio medio de la segunda zona
+            svg.append("rect")
+                .attr("x", zoneWidth)
+                .attr("y", y(66.67))
+                .attr("width", zoneWidth)
+                .attr("height", y(33.33) - y(66.67))
+                .attr("class", "zone-color")
+                .attr("fill", "green")
+                .attr("opacity", 0.3);
+
+            // Colorear el tercio superior de la tercera zona
+            svg.append("rect")
+                .attr("x", 2 * zoneWidth)
+                .attr("y", 0)
+                .attr("width", zoneWidth)
+                .attr("height", y(66.67))
+                .attr("class", "zone-color")
+                .attr("fill", "red")
+                .attr("opacity", 0.3);
+
+            // Actualizar la tabla de datos
+            updateTable();
+        });
+
+        function updateTable() {
+            const zoneWidth = (width - margin.left - margin.right) / 3;
+            const zoneHeight = height - margin.top - margin.bottom;
+            const tableData = [[], [], []];
+
+            data.forEach(point => {
+                const xVal = x(point.age);
+                const yVal = y(point.purchases);
+                if (xVal < zoneWidth && yVal > y(33.33)) {
+                    tableData[0].push(point);
+                } else if (xVal >= zoneWidth && xVal < 2 * zoneWidth && yVal < y(33.33) && yVal > y(66.67)) {
+                    tableData[1].push(point);
+                } else if (xVal >= 2 * zoneWidth && yVal < y(66.67)) {
+                    tableData[2].push(point);
+                }
+            });
+
+            const outputContainer = document.getElementById("output-container");
+            outputContainer.innerHTML = `
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Microtransacciones</th>
+                            <th>Suscripciones</th>
+                            <th>Productos únicos y caros</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>${tableData[0].map(d => `Nombre: ${d.name}, Edad: ${d.age}, Compras: ${d.purchases}`).join('<br>')}</td>
+                            <td>${tableData[1].map(d => `Nombre: ${d.name}, Edad: ${d.age}, Compras: ${d.purchases}`).join('<br>')}</td>
+                            <td>${tableData[2].map(d => `Nombre: ${d.name}, Edad: ${d.age}, Compras: ${d.purchases}`).join('<br>')}</td>
+                        </tr>
+                    </tbody>
+                </table>
+            `;
+
+            // Resaltar puntos coloreados en la tabla
+            svg.selectAll("circle").attr("class", "");
+            tableData.flat().forEach(point => {
+                svg.selectAll("circle")
+                    .filter(d => d === point)
+                    .attr("class", "highlight");
+            });
+        }
+    </script>
+</body>
+</html>
